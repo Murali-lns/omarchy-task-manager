@@ -3,15 +3,16 @@
 
 Reads /proc, XDG autostart, and local GPU counters. NVIDIA utilization comes
 from nvidia-smi only when the proprietary driver does not publish a sysfs
-busy percent. Never kills by name, never signals a process group, and refuses
-a PID whose start time does not match the snapshot — a recycled PID must not
-be ended by a stale click.
+busy percent. Never kills by name, never signals a process group, and never
+signals by PID alone. End task opens a pidfd, re-checks the start time, and
+sends the signal through that descriptor so a recycled PID cannot be ended.
 """
 
 from __future__ import annotations
 
 import argparse
 import csv
+import errno
 import io
 import json
 import os
@@ -57,6 +58,7 @@ SKIP_DISK_PREFIX = ("loop", "ram", "fd", "dm-", "zram", "sr")
 CARD_RE = re.compile(r"^card\d+$")
 GPU_LIMIT = 8
 NVIDIA_SMI = "/usr/bin/nvidia-smi"
+HYPRCTL = "/usr/bin/hyprctl"
 NVIDIA_FIELDS = "index,name,utilization.gpu,memory.used,memory.total,temperature.gpu"
 VENDOR_SHORT = {"1002": "AMD", "10de": "NVIDIA", "8086": "Intel"}
 DRIVER_VENDOR = {"amdgpu": "amd", "nvidia": "nvidia", "i915": "intel", "xe": "intel"}
@@ -1175,21 +1177,53 @@ def evaluate_end(pid, expected_start, signal_name: str, live: dict | None, my_ui
     return protection_reason(pid, live["comm"], live["state"], live["flags"], live["uid"], my_uid) or None
 
 
-def perform_end(pid, expected_start, signal_name: str, live: dict | None, my_uid: int, killer) -> dict:
+class IdentityChanged(Exception):
+    """The pinned task is not the one the user selected."""
+
+
+def signal_pinned(pid: int, expected_start: int, sig: int, proc_root: Path) -> None:
+    """Signal the task pinned by a pidfd, or raise if that task is gone.
+
+    Signaling by PID alone can hit a recycled PID. Open the descriptor first,
+    re-read the start time, and send the signal through the descriptor. A
+    reuse after the open makes the signal fail instead of hitting the new task.
+    """
+    fd = os.pidfd_open(pid)
+    try:
+        live = live_process(proc_root, pid)
+        if live is None or live["starttime"] != expected_start:
+            raise IdentityChanged()
+        signal.pidfd_send_signal(fd, sig)
+    finally:
+        os.close(fd)
+
+
+def perform_end(pid, expected_start, signal_name: str, live: dict | None, my_uid: int, killer=None, proc_root: Path | None = None) -> dict:
     reason = evaluate_end(pid, expected_start, signal_name, live, my_uid)
     if reason:
         return fail(reason)
     sig = signal.SIGTERM if signal_name == "TERM" else signal.SIGKILL
     try:
-        killer(pid, sig)
+        if killer is not None:
+            killer(pid, sig)
+        elif proc_root is not None:
+            signal_pinned(pid, expected_start, sig, proc_root)
+        else:
+            return fail("No pinned signal path.")
+    except IdentityChanged:
+        return fail("PID was reused. Refresh and try again.")
     except ProcessLookupError:
         return fail("That process is already gone.")
     except PermissionError:
         return fail("Not permitted to end that process.")
+    except OSError as exc:
+        if getattr(exc, "errno", None) == errno.ESRCH:
+            return fail("That process is already gone.")
+        return fail("Not permitted to end that process.")
     return {"ok": True, "pid": pid, "signal": signal_name}
 
 
-def perform_end_batch(targets: list[dict], signal_name: str, proc_root: Path, my_uid: int, killer) -> dict:
+def perform_end_batch(targets: list[dict], signal_name: str, proc_root: Path, my_uid: int, killer=None) -> dict:
     if signal_name not in ("TERM", "KILL"):
         return fail("Signal must be TERM or KILL.")
     if not isinstance(targets, list) or not targets:
@@ -1208,7 +1242,8 @@ def perform_end_batch(targets: list[dict], signal_name: str, proc_root: Path, my
             errors.append(f"PID {pid}: start time is required.")
             continue
         live = live_process(proc_root, pid)
-        res = perform_end(pid, starttime, signal_name, live, my_uid, killer)
+        pinned_root = None if killer is not None else proc_root
+        res = perform_end(pid, starttime, signal_name, live, my_uid, killer, pinned_root)
         if res.get("ok"):
             ended.append(pid)
         else:
@@ -1242,8 +1277,10 @@ def emit(payload: dict) -> int:
 
 def default_window_runner():
     import subprocess
+    if not os.path.isfile(HYPRCTL) or not os.access(HYPRCTL, os.X_OK):
+        return ""
     completed = subprocess.run(
-        ["hyprctl", "clients", "-j"],
+        [HYPRCTL, "clients", "-j"],
         check=False,
         capture_output=True,
         text=True,
@@ -1307,12 +1344,12 @@ def main(argv: list[str] | None = None) -> int:
             targets = json.loads(args.targets)
         except (ValueError, TypeError) as e:
             return emit(fail(f"Invalid targets JSON: {e}"))
-        payload = perform_end_batch(targets, args.signal, proc_root, os.getuid(), os.kill)
+        payload = perform_end_batch(targets, args.signal, proc_root, os.getuid())
         return emit(payload)
     if args.pid is None or args.starttime is None:
         return emit(fail("end requires --pid and --starttime or --targets."))
     live = live_process(proc_root, args.pid)
-    payload = perform_end(args.pid, args.starttime, args.signal, live, os.getuid(), os.kill)
+    payload = perform_end(args.pid, args.starttime, args.signal, live, os.getuid(), proc_root=proc_root)
     return emit(payload)
 
 

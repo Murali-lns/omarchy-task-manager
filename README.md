@@ -53,7 +53,7 @@ The plugin runs with the signed-in user's ordinary desktop permissions.
 - It reads `/proc`, `/sys`, and XDG autostart desktop files. Autostart is read only.
 - It writes only its own sample file, `~/.local/state/omarchy/task-manager/sample.json`, mode `0600`, so CPU and disk rates can be computed between polls.
 - It does not write `shell.json`, Hyprland config, or any other user configuration.
-- End task signals only the signed-in user's own processes, and only after confirmation, and only when the process start time still matches the row.
+- End task signals only the signed-in user's own processes, and only after confirmation. The signal goes through a pidfd opened on that task, and only when its start time still matches, so a recycled PID cannot receive it.
 - It does not read credentials, prompts, or message contents, and it does not open a network connection.
 
 ## External dependencies

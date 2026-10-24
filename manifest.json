@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.murali-lns.task-manager",
   "name": "Task Manager",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "author": "Murali-lns",
   "license": "MIT",
   "description": "Windows-style task manager: process list, CPU, GPU, and memory performance, and startup apps.",

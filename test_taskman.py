@@ -158,6 +158,14 @@ class EndTests(unittest.TestCase):
         self.assertEqual(result["ended"], [10, 20])
         self.assertEqual(calls, [(10, signal.SIGTERM), (20, signal.SIGTERM)])
 
+    def test_production_end_does_not_signal_by_pid(self):
+        source = (Path(__file__).resolve().parent / "bin" / "taskman.py").read_text(encoding="utf-8")
+        self.assertNotIn("os.kill", source)
+        self.assertIn("pidfd_open", source)
+        self.assertIn("pidfd_send_signal", source)
+        self.assertNotIn('["hyprctl"', source)
+        self.assertIn('HYPRCTL = "/usr/bin/hyprctl"', source)
+
 
 class SnapshotTests(unittest.TestCase):
     def write_tree(self, root: Path, user, idle=1000, net_rx=1000):
@@ -421,6 +429,31 @@ class LiveChildTests(unittest.TestCase):
             self.assertEqual(payload["pid"], child.pid)
             child.wait(timeout=3)
             self.assertNotEqual(child.returncode, None)
+        finally:
+            if child.poll() is None:
+                os.kill(child.pid, signal.SIGKILL)
+                child.wait(timeout=3)
+
+    def test_wrong_starttime_leaves_the_child_running(self):
+        child = subprocess.Popen(["sleep", "30"])
+        try:
+            stat = Path(f"/proc/{child.pid}/stat").read_text()
+            parsed = taskman.parse_pid_stat(stat)
+            self.assertIsNotNone(parsed)
+            completed = subprocess.run(
+                [sys.executable, str(Path(__file__).resolve().parent / "bin" / "taskman.py"),
+                 "end", "--pid", str(child.pid), "--starttime", str(parsed["starttime"] + 1), "--signal", "KILL"],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            payload = json.loads(completed.stdout)
+            self.assertFalse(payload["ok"], payload)
+            self.assertIn("reused", payload["error"])
+            self.assertIsNone(child.poll())
+            with self.assertRaises(taskman.IdentityChanged):
+                taskman.signal_pinned(child.pid, parsed["starttime"] + 1, signal.SIGKILL, Path("/proc"))
+            self.assertIsNone(child.poll())
         finally:
             if child.poll() is None:
                 os.kill(child.pid, signal.SIGKILL)
