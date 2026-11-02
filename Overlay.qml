@@ -428,6 +428,7 @@ Item {
               color: segItem.chosen ? root.accent : root.muted
             }
             Text {
+              textFormat: Text.PlainText
               anchors.verticalCenter: parent.verticalCenter
               text: segItem.modelData.label
               color: segItem.chosen ? root.accent : root.foreground
@@ -465,6 +466,7 @@ Item {
       anchors.leftMargin: head.inset
       spacing: Style.spacing.xs
       Text {
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         text: head.text.toUpperCase()
         color: head.active ? root.accent : (headMouse.containsMouse ? root.foreground : root.muted)
@@ -521,6 +523,7 @@ Item {
           font.pixelSize: Style.font.caption
         }
         Text {
+          textFormat: Text.PlainText
           anchors.verticalCenter: parent.verticalCenter
           text: tile.label.toUpperCase()
           color: root.muted
@@ -533,6 +536,7 @@ Item {
         width: parent.width
         spacing: Style.spacing.md
         Text {
+          textFormat: Text.PlainText
           id: tileValue
           anchors.verticalCenter: parent.verticalCenter
           text: tile.value
@@ -542,6 +546,7 @@ Item {
           font.bold: true
         }
         Text {
+          textFormat: Text.PlainText
           anchors.verticalCenter: parent.verticalCenter
           width: Math.max(0, parent.width - tileValue.implicitWidth - parent.spacing)
           text: tile.sub
@@ -706,6 +711,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         spacing: Style.spacing.xxs
         Text {
+          textFormat: Text.PlainText
           width: parent.width
           text: perf.title
           color: root.foreground
@@ -728,6 +734,7 @@ Item {
               color: perf.ink
             }
             Text {
+              textFormat: Text.PlainText
               width: perf.compact ? Math.max(0, legendA.width - Style.space(12)) : implicitWidth
               elide: Text.ElideRight
               text: perf.detail
@@ -749,6 +756,7 @@ Item {
               color: Util.alpha(root.foreground, 0.55)
             }
             Text {
+              textFormat: Text.PlainText
               width: perf.compact ? Math.max(0, legendB.width - Style.space(12)) : implicitWidth
               elide: Text.ElideRight
               text: perf.detail2
@@ -761,6 +769,7 @@ Item {
       }
 
       Text {
+        textFormat: Text.PlainText
         id: perfValue
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
@@ -955,6 +964,7 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: Style.spacing.xxs
                 Text {
+                  textFormat: Text.PlainText
                   text: "Task Manager"
                   color: root.foreground
                   font.family: root.fontFamily
@@ -962,6 +972,7 @@ Item {
                   font.bold: true
                 }
                 Text {
+                  textFormat: Text.PlainText
                   text: root.subtitle
                   color: root.muted
                   font.family: root.fontFamily
@@ -1031,6 +1042,7 @@ Item {
                 font.pixelSize: Style.font.bodySmall
               }
               Text {
+                textFormat: Text.PlainText
                 id: errorText
                 anchors.verticalCenter: parent.verticalCenter
                 width: parent.width - Style.space(24)
@@ -1290,6 +1302,7 @@ Item {
                         radius: root.softRadius
                         color: Util.alpha(rowItem.isChild ? root.foreground : root.accent, rowItem.isChild ? 0.07 : 0.16)
                         Text {
+                          textFormat: Text.PlainText
                           anchors.centerIn: parent
                           text: root.initial(rowItem.modelData.name)
                           color: rowItem.isChild ? root.muted : root.accent
@@ -1299,6 +1312,7 @@ Item {
                         }
                       }
                       Text {
+                        textFormat: Text.PlainText
                         anchors.verticalCenter: parent.verticalCenter
                         width: Math.max(0, nameCell.width - (rowItem.isChild ? Style.space(20) : 0)
                           - chevron.width - avatar.width - Style.spacing.md * 2
@@ -1319,6 +1333,7 @@ Item {
                         radius: root.softRadius
                         color: Util.alpha(root.foreground, 0.08)
                         Text {
+                          textFormat: Text.PlainText
                           id: countText
                           anchors.centerIn: parent
                           text: rowItem.modelData.count || ""
@@ -1345,6 +1360,7 @@ Item {
                         color: root.stateColor(rowItem.modelData.state)
                       }
                       Text {
+                        textFormat: Text.PlainText
                         text: rowItem.modelData.status
                         color: rowItem.modelData.state === "R" ? root.accent : root.muted
                         font.family: root.fontFamily
@@ -1359,6 +1375,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: Style.spacing.xs
                     Text {
+                      textFormat: Text.PlainText
                       width: parent.width
                       horizontalAlignment: Text.AlignRight
                       text: TaskModel.formatCpu(rowItem.modelData.cpu)
@@ -1375,6 +1392,7 @@ Item {
                   }
 
                   Text {
+                    textFormat: Text.PlainText
                     width: root.colW(0.15)
                     height: parent.height
                     horizontalAlignment: Text.AlignRight
@@ -1392,6 +1410,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: Style.spacing.xs
                     Text {
+                      textFormat: Text.PlainText
                       width: parent.width
                       horizontalAlignment: Text.AlignRight
                       text: TaskModel.formatBytes(rowItem.modelData.memBytes)
@@ -1408,6 +1427,7 @@ Item {
                   }
 
                   Text {
+                    textFormat: Text.PlainText
                     width: root.colW(0.09)
                     height: parent.height
                     horizontalAlignment: Text.AlignRight
@@ -1418,6 +1438,7 @@ Item {
                     verticalAlignment: Text.AlignVCenter
                   }
                   Text {
+                    textFormat: Text.PlainText
                     width: root.colW(0.11)
                     height: parent.height
                     leftPadding: Style.spacing.xl
@@ -1454,6 +1475,7 @@ Item {
                   font.pixelSize: Style.font.displayLarge
                 }
                 Text {
+                  textFormat: Text.PlainText
                   anchors.horizontalCenter: parent.horizontalCenter
                   text: root.service && root.service.detail ? "No matching processes." : "Reading processes…"
                   color: root.muted
@@ -1499,6 +1521,7 @@ Item {
                   font.pixelSize: Style.font.caption
                 }
                 Text {
+                  textFormat: Text.PlainText
                   width: parent.width - detailGlyph.width - parent.spacing
                   height: parent.height
                   text: root.selected
@@ -1637,6 +1660,7 @@ Item {
                   font.pixelSize: Style.font.caption
                 }
                 Text {
+                  textFormat: Text.PlainText
                   anchors.verticalCenter: parent.verticalCenter
                   text: root.startupEnabled + " of " + root.startup.length + " enabled  ·  XDG autostart, read only. A user Hidden entry overrides the system copy."
                   color: root.muted
@@ -1668,6 +1692,7 @@ Item {
                 radius: root.softRadius
                 color: Util.alpha(startRow.modelData.enabled ? root.accent : root.foreground, startRow.modelData.enabled ? 0.16 : 0.07)
                 Text {
+                  textFormat: Text.PlainText
                   anchors.centerIn: parent
                   text: root.initial(startRow.modelData.name)
                   color: startRow.modelData.enabled ? root.accent : root.muted
@@ -1684,6 +1709,7 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: Style.spacing.xxs
                 Text {
+                  textFormat: Text.PlainText
                   width: parent.width
                   text: startRow.modelData.name
                   color: startRow.modelData.enabled ? root.foreground : root.muted
@@ -1693,6 +1719,7 @@ Item {
                   elide: Text.ElideRight
                 }
                 Text {
+                  textFormat: Text.PlainText
                   width: parent.width
                   text: startRow.modelData.exec || startRow.modelData.file
                   color: root.muted
@@ -1714,6 +1741,7 @@ Item {
                   radius: root.softRadius
                   color: Util.alpha(root.foreground, 0.06)
                   Text {
+                    textFormat: Text.PlainText
                     id: sourceText
                     anchors.centerIn: parent
                     text: String(startRow.modelData.source || "").toUpperCase()
@@ -1741,6 +1769,7 @@ Item {
                       color: startRow.modelData.enabled ? root.accent : root.muted
                     }
                     Text {
+                      textFormat: Text.PlainText
                       text: startRow.modelData.enabled ? "Enabled" : "Disabled"
                       color: startRow.modelData.enabled ? root.accent : root.muted
                       font.family: root.fontFamily
@@ -1786,6 +1815,7 @@ Item {
                   border.width: 1
                   border.color: root.hairline
                   Text {
+                    textFormat: Text.PlainText
                     id: keyText
                     anchors.centerIn: parent
                     text: modelData.k
@@ -1795,6 +1825,7 @@ Item {
                   }
                 }
                 Text {
+                  textFormat: Text.PlainText
                   anchors.verticalCenter: parent.verticalCenter
                   text: modelData.t
                   color: root.muted

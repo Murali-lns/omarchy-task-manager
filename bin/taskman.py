@@ -63,6 +63,30 @@ NVIDIA_FIELDS = "index,name,utilization.gpu,memory.used,memory.total,temperature
 VENDOR_SHORT = {"1002": "AMD", "10de": "NVIDIA", "8086": "Intel"}
 DRIVER_VENDOR = {"amdgpu": "amd", "nvidia": "nvidia", "i915": "intel", "xe": "intel"}
 
+# Names, command lines, and window titles come from other programs. The overlay
+# shows them as plain text, and they are normalised here as well: control and
+# bidirectional formatting characters become spaces, whitespace runs collapse to
+# one line, and the result is capped. Nothing from another process reaches the
+# panel with embedded line breaks or text-direction overrides.
+UNSAFE_TEXT = str.maketrans({
+    code: " "
+    for code in (
+        *range(0x00, 0x20),
+        0x7F,
+        *range(0x80, 0xA0),
+        *range(0x200B, 0x2010),
+        *range(0x2028, 0x202F),
+        *range(0x2060, 0x2065),
+        0xFEFF,
+        0x00AD,
+    )
+})
+
+
+def clean_label(value, limit: int = 160) -> str:
+    text = str(value or "").translate(UNSAFE_TEXT)
+    return " ".join(text.split())[:limit]
+
 
 def fail(message: str) -> dict:
     return {"ok": False, "error": message}
@@ -560,7 +584,7 @@ def read_live_gpus(drm_root: Path, nvidia_runner, pci_ids: Path) -> list:
 
 def decode_cmdline(raw: bytes) -> str:
     parts = [part.decode("utf-8", "replace") for part in raw.split(b"\0") if part]
-    return " ".join(parts)[:CMDLINE_LIMIT]
+    return clean_label(" ".join(parts), CMDLINE_LIMIT)
 
 
 def display_name(comm: str, cmdline: str) -> str:
@@ -568,8 +592,8 @@ def display_name(comm: str, cmdline: str) -> str:
         argv0 = cmdline.split(" ", 1)[0]
         base = argv0.rsplit("/", 1)[-1]
         if base and (not comm or base.startswith(comm) or comm.startswith(base[:15])):
-            return base[:80]
-    return comm or "?"
+            return clean_label(base, 80)
+    return clean_label(comm or "?", 80)
 
 
 def parse_desktop(text: str, source: str, file_name: str) -> dict | None:
@@ -592,12 +616,12 @@ def parse_desktop(text: str, source: str, file_name: str) -> dict | None:
     hidden = fields.get("Hidden", "").lower() == "true"
     gnome = fields.get("X-GNOME-Autostart-enabled", "true").lower()
     return {
-        "name": fields.get("Name", ""),
-        "exec": fields.get("Exec", ""),
+        "name": clean_label(fields.get("Name", ""), 120),
+        "exec": clean_label(fields.get("Exec", ""), CMDLINE_LIMIT),
         "enabled": (not hidden) and gnome not in ("false", "0"),
         "controls_enabled": "Hidden" in fields or "X-GNOME-Autostart-enabled" in fields,
         "source": source,
-        "file": file_name,
+        "file": clean_label(file_name, 120),
     }
 
 
@@ -658,7 +682,7 @@ def window_titles(clients) -> dict:
         if isinstance(pid, bool) or not isinstance(pid, int) or pid <= 1:
             continue
         title = client.get("title") or client.get("class") or ""
-        titles[pid] = str(title)[:160]
+        titles[pid] = clean_label(title, 160)
     return titles
 
 

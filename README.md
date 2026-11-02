@@ -51,6 +51,7 @@ omarchy plugin update io.github.murali-lns.task-manager
 The plugin runs with the signed-in user's ordinary desktop permissions.
 
 - It reads `/proc`, `/sys`, and XDG autostart desktop files. Autostart is read only.
+- Window titles, process names, and command lines come from other applications. They are shown as plain text on one line, with control and bidirectional characters removed and the length capped, so a crafted title renders literally and cannot load remote content.
 - It writes only its own sample file, `~/.local/state/omarchy/task-manager/sample.json`, mode `0600`, so CPU and disk rates can be computed between polls.
 - It does not write `shell.json`, Hyprland config, or any other user configuration.
 - End task signals only the signed-in user's own processes, and only after confirmation. The signal goes through a pidfd opened on that task, and only when its start time still matches, so a recycled PID cannot receive it.

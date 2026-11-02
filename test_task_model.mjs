@@ -97,3 +97,31 @@ test("visibleRows filters kind and search, and sorts cpu with nulls last", () =>
   const byCpu = TaskModel.visibleRows(rows, "", "all", "cpu", true)
   assert.deepEqual(byCpu.map((row) => row.pid), [9, 2, 4])
 })
+
+test("cleanLabel turns a hostile title into one bounded plain line", () => {
+  assert.equal(TaskModel.cleanLabel("Docs\u202e\u0007<img src=x>\nsecond line"), "Docs <img src=x> second line")
+  assert.equal(TaskModel.cleanLabel("x".repeat(300), 160).length, 160)
+  assert.equal(TaskModel.cleanLabel(null), "")
+})
+
+test("a hostile window title stays literal and bounded in a row", () => {
+  const hostile = "Docs\u202e\u0007<img src=x onerror=alert(1)>"
+  const rows = TaskModel.visibleRows([{
+    pid: 12,
+    name: "firefox",
+    user: "alpha",
+    status: "Running",
+    kind: "app",
+    windowTitle: hostile,
+    cmdline: "firefox"
+  }], "", "all", "cpu", true, [])
+  assert.equal(rows.length, 1)
+  assert.equal(rows[0].name, "firefox — Docs <img src=x onerror=alert(1)>")
+  assert.equal(rows[0].windowTitle, "Docs <img src=x onerror=alert(1)>")
+  const capped = TaskModel.visibleRows([{
+    pid: 13, name: "app", user: "alpha", status: "Running", kind: "app",
+    windowTitle: "y".repeat(500), cmdline: "app"
+  }], "", "all", "cpu", true, [])
+  assert.equal(capped[0].windowTitle.length, 160)
+  assert.ok(capped[0].name.length <= 200)
+})

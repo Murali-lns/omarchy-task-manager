@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -493,6 +494,111 @@ class LiveChildTests(unittest.TestCase):
                 if c.poll() is None:
                     os.kill(c.pid, signal.SIGKILL)
                     c.wait(timeout=3)
+
+
+class UntrustedTextTests(unittest.TestCase):
+    """Window titles, names, and command lines come from other programs."""
+
+    HOSTILE_TITLE = "Docs\u202e\x07<img src=x onerror=alert(1)>\nsecond line"
+
+    def test_window_titles_become_one_plain_line(self):
+        titles = taskman.window_titles([{"pid": 42, "title": self.HOSTILE_TITLE}])
+        self.assertEqual(titles[42], "Docs <img src=x onerror=alert(1)> second line")
+
+    def test_window_title_falls_back_to_class_and_is_capped(self):
+        titles = taskman.window_titles([
+            {"pid": 7, "class": "kitty"},
+            {"pid": 8, "title": "x" * 500},
+        ])
+        self.assertEqual(titles[7], "kitty")
+        self.assertEqual(len(titles[8]), 160)
+
+    def test_window_titles_skip_invalid_entries(self):
+        titles = taskman.window_titles([
+            {"pid": 1, "title": "init"},
+            {"pid": True, "title": "bool"},
+            "not a client",
+        ])
+        self.assertEqual(titles, {})
+
+    def test_display_name_cleans_a_hostile_comm(self):
+        self.assertEqual(taskman.display_name("evil\u202e\x07name", ""), "evil name")
+        self.assertEqual(taskman.display_name("", "/usr/bin/\u200bapp"), "app")
+
+    def test_cmdline_is_single_line_and_capped(self):
+        raw = b"app\0--title\0" + b"a" * 400
+        cleaned = taskman.decode_cmdline(raw)
+        self.assertNotIn("\0", cleaned)
+        self.assertLessEqual(len(cleaned), taskman.CMDLINE_LIMIT)
+
+    def test_autostart_labels_are_cleaned(self):
+        entry = taskman.parse_desktop(
+            "[Desktop Entry]\nName=Bad\x07Name\u202e\nExec=app --x\n",
+            "system",
+            "bad\x07.desktop",
+        )
+        self.assertEqual(entry["name"], "Bad Name")
+        self.assertEqual(entry["file"], "bad .desktop")
+
+
+class OverlaySinkTests(unittest.TestCase):
+    """Every Text element must render literal text, never markup.
+
+    Window titles and command lines are controlled by other programs. Qt's
+    default AutoText would let a crafted title request an image URL, so each
+    Text is pinned to PlainText and the whole file is checked for rich text.
+    """
+
+    ROOT = Path(__file__).resolve().parent
+
+    @staticmethod
+    def text_blocks(source: str):
+        lines = source.splitlines()
+        blocks = []
+        index = 0
+        while index < len(lines):
+            if re.match(r"^\s*Text\s*\{\s*$", lines[index]):
+                depth = 0
+                end = index
+                while end < len(lines):
+                    depth += lines[end].count("{") - lines[end].count("}")
+                    if depth == 0:
+                        break
+                    end += 1
+                blocks.append((index + 1, "\n".join(lines[index:end + 1])))
+                index = end + 1
+                continue
+            index += 1
+        return blocks
+
+    def test_every_text_element_pins_plain_text(self):
+        checked = 0
+        for path in sorted(self.ROOT.glob("*.qml")):
+            source = path.read_text()
+            for token in ("AutoText", "RichText", "StyledText"):
+                self.assertNotIn(token, source, f"{path.name} uses {token}")
+            for line, block in self.text_blocks(source):
+                self.assertIn(
+                    "textFormat: Text.PlainText",
+                    block,
+                    f"{path.name}:{line} renders without a plain-text pin",
+                )
+                checked += 1
+        self.assertGreater(checked, 20, "QML Text scan found too few sinks to trust")
+
+    def test_window_title_sink_is_plain_text(self):
+        source = (self.ROOT / "Overlay.qml").read_text()
+        blocks = [block for _, block in self.text_blocks(source) if "rowItem.modelData.name" in block]
+        self.assertTrue(blocks, "process name Text not found")
+        for block in blocks:
+            self.assertIn("textFormat: Text.PlainText", block)
+
+    def test_command_line_sink_is_plain_text(self):
+        source = (self.ROOT / "Overlay.qml").read_text()
+        blocks = [block for _, block in self.text_blocks(source) if "selected.cmdline" in block]
+        self.assertTrue(blocks, "detail line Text not found")
+        for block in blocks:
+            self.assertIn("textFormat: Text.PlainText", block)
 
 
 if __name__ == "__main__":

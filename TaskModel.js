@@ -114,6 +114,20 @@ function gpuSortValue(row) {
   return mem
 }
 
+// Process names and window titles come from other programs and are rendered in
+// a plain-text Text element. Normalise them here too: control and bidi
+// formatting characters become spaces, whitespace collapses to one line, and
+// the value is capped. Markup characters such as "<img ...>" survive as
+// literal text, which is what the plain-text pin in Overlay.qml guarantees.
+var CONTROL_CHARS = /[\u0000-\u001f\u007f-\u009f\u00ad\u200b-\u200f\u2028-\u202e\u2060-\u2064\ufeff]/g
+
+function cleanLabel(value, limit) {
+  var text = String(value === null || value === undefined ? "" : value)
+  text = text.replace(CONTROL_CHARS, " ").replace(/\s+/g, " ").replace(/^ | $/g, "")
+  var cap = limit || 160
+  return text.length > cap ? text.slice(0, cap) : text
+}
+
 function baseName(row) {
   var name = String(row && row.name || "").replace(/^\s+|\s+$/g, "")
   var cut = name.indexOf(" — ")
@@ -157,6 +171,7 @@ function summarize(items) {
   var titleSource = titled || lead || items[0]
   var title = baseName(titleSource) || String(titleSource && titleSource.name || "?")
   if (titled && titled.windowTitle && String(titled.windowTitle).toLowerCase() !== String(baseName(titled)).toLowerCase()) title = title + " — " + titled.windowTitle
+  title = cleanLabel(title, 200)
   return {
     cpu: cpu === null ? null : round1(cpu),
     gpu: gpu === null ? null : round1(gpu),
@@ -174,6 +189,7 @@ function summarize(items) {
 function processEntry(row, depth, grouped) {
   var name = baseName(row) || String(row.name || "?")
   if (!grouped && row.windowTitle) name = name + " — " + row.windowTitle
+  name = cleanLabel(name, 200)
   return {
     type: "process",
     id: "p:" + row.pid,
@@ -192,7 +208,7 @@ function processEntry(row, depth, grouped) {
     memBytes: row.memBytes || 0,
     pid: row.pid,
     user: row.user || "",
-    windowTitle: row.windowTitle || "",
+    windowTitle: cleanLabel(row.windowTitle || "", 160),
     cmdline: row.cmdline || "",
     protected: !!row.protected,
     protectReason: row.protectReason || "",
@@ -306,6 +322,7 @@ function matchCount(processes, query, kind) {
 
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
+    cleanLabel: cleanLabel,
     formatBytes: formatBytes,
     formatRate: formatRate,
     formatCpu: formatCpu,
